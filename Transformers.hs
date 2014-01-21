@@ -46,7 +46,8 @@ eval env (App e1 e2)   =   do  val1  <- eval env e1
 
 
 --exampleExp = Lit 12 `Plus` (App (Abs "x" (Var "x")) (Lit 4 `Plus` Lit 2))
-exampleExp = Plus (Lit 1) (Abs "x" (Var "x"))
+--exampleExp = Plus (Lit 1) (Abs "x" (Var "x"))
+exampleExp = Var "x"
 
 main :: IO ()
 main = do
