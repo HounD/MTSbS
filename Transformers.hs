@@ -1,6 +1,7 @@
 
 import Control.Monad.Identity
 import Control.Monad.Error
+import Control.Monad.Reader
 
 import Data.Maybe
 import qualified Data.Map as Map
@@ -20,32 +21,41 @@ data Value  =  IntVal Integer
 
 type Env    =  Map.Map Name Value
 
-type Eval alpha  =   ErrorT String Identity alpha
+type Eval alpha  =   ReaderT Env (ErrorT String Identity) alpha
 
-runEval         :: Eval alpha -> Either String alpha
-runEval ev      = runIdentity (runErrorT ev)
+runEval         :: Env -> Eval alpha -> Either String alpha
+runEval env ev  = runIdentity (runErrorT (runReaderT ev env))
+ 
+eval                   ::  Exp -> Eval Value
 
-eval                   ::  Env -> Exp -> Eval Value 
+eval (Lit i)           =   return $ IntVal i
 
-eval env (Lit i)       =   return $ IntVal i
+eval (Var n)           =   do  env <- ask
+                               case Map.lookup n env of
+                                    Nothing -> throwError ("unbound variable: " ++ n)
+                                    Just val -> return val
 
-eval env (Var n)       =   return $ fromJust (Map.lookup n env)
+eval (Plus e1 e2)      =   do  e1' <- eval e1
+                               e2' <- eval e2
+                               case (e1', e2') of
+                                    (IntVal i1, IntVal i2) -> return $ IntVal (i1 + i2)
+                                    _ -> throwError "type error in addition"
 
-eval env (Plus e1 e2)  =   do  IntVal i1  <- eval env e1
-                               IntVal i2  <- eval env e2
-                               return $ IntVal (i1 + i2)
+eval (Abs n e)         =   do  env <- ask
+                               return $ FunVal env n e
 
-eval env (Abs n e)     =   return $ FunVal env n e
-
-eval env (App e1 e2)   =   do  FunVal env' n body  <- eval env e1
-                               val2                <- eval env e2
-                               eval (Map.insert n val2 env') body                                    
+eval  (App e1 e2)      =   do  val1 <- eval e1
+                               val2 <- eval e2
+                               case val1 of
+                                    FunVal env' n body -> local (const (Map.insert n val2 env')) (eval body)
+                                    _ -> throwError "type error in application"                                    
 
 
 --exampleExp = Lit 12 `Plus` (App (Abs "x" (Var "x")) (Lit 4 `Plus` Lit 2))
 --exampleExp = Plus (Lit 1) (Abs "x" (Var "x"))
 exampleExp = Var "x"
 
+
 main :: IO ()
 main = do
-  print $ runEval (eval Map.empty exampleExp)
+  print $ runEval Map.empty (eval exampleExp)
