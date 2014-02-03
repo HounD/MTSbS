@@ -67,4 +67,4 @@ exampleExp = Lit 12 `Plus` (App (Abs "x" (Var "x")) (Lit 4 `Plus` Lit 2))
 
 main :: IO ()
 main = do
-  print $ runEval Map.empty (eval exampleExp)
+  print $ runEval Map.empty 0 (eval exampleExp)
